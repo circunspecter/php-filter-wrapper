@@ -1,0 +1,181 @@
+<h1 id="grindnousfilter">GrindNous\Filter</h1>
+<p>PHP Filter wrapper. Class which facilitates the use of filters in batches when validate or sanitize data.</p>
+<p>Features</p>
+<ul>
+<li>Simplifying the use of extension</li>
+<li>Grouping of filters</li>
+<li>Associated error messages</li>
+</ul>
+<p>Requirements</p>
+<ul>
+<li>PHP 5.2+</li>
+</ul>
+<h2 id="public-methods">Public Methods</h2>
+<hr />
+<pre><code>/**
+ * @param array $data Field name and value pairs.
+ * @return object
+ */
+static factory(array $data)
+</code></pre>
+<hr />
+<pre><code>/**
+ * @param mixed $fields string|array with field(s) that apply the filter; if TRUE, the filter will be applied to all given fields.
+ * @param callable|int $filter Callback function or {@link http://www.php.net/manual/en/filter.filters.php filter} to apply.
+ * @param mixed $options Filter options; {@link http://www.php.net/manual/en/function.filter-var.php filter_var}.
+ * @return object
+ */
+sanitize($fields, $filter, $options = NULL)
+</code></pre>
+<hr />
+<pre><code>/**
+ * @param mixed $fields string|array with field(s) that apply the filter; if TRUE, the filter will be applied to all given fields.
+ * @param mixed $filter Callback function, int {@link http://www.php.net/manual/en/filter.filters.php filter} or class filter to apply.
+ * @param mixed $options Filter options; {@link http://www.php.net/manual/en/function.filter-var.php filter_var}.
+ * @param string|array $error Error message or indexed array containing an error message string with ":field" keyword, followed by an associative array containing the field names and his human-readable versions.
+ * @return object
+ */
+validate($fields, $filter, $options = NULL, $error = NULL)
+</code></pre>
+<hr />
+<pre><code>/**
+ * Indicates if all the filters have been applied correctly.
+ *
+ * @return bool
+ */
+ok()
+</code></pre>
+<hr />
+<pre><code>/**
+ * @return array Field name and error pairs.
+ */
+errors()
+</code></pre>
+<hr />
+<pre><code>/**
+ * @param array $data Set data and reset class.
+ * @return mixed Filter object if data given, otherwise, field name and filtered value pairs or FALSE if empty.
+ */
+data(array $data = array())
+</code></pre>
+<h2 id="class-filters">Class filters</h2>
+<hr />
+<pre><code>not_empty
+validate('field', 'not_empty', NULL, 'Field cannot be empty.')
+</code></pre>
+<hr />
+<pre><code>min_length
+validate('field', 'min_length', 3, 'Field must have more than 3 characters.')
+</code></pre>
+<hr />
+<pre><code>max_length
+validate('field', 'max_length', 140, 'Field exceeds the limit of 140 characters.')
+</code></pre>
+<hr />
+<pre><code>exact_length
+validate('field', 'exact_length', 15, 'Field must be exactly 15 characters long.')
+</code></pre>
+<hr />
+<pre><code>valid_email
+validate('field', 'valid_email', NULL, 'You must enter a valid email address.')
+</code></pre>
+<h2 id="properties">Properties</h2>
+<hr />
+<pre><code>multipleFieldErrors
+Indicates whether or not to continue applying the filters over a field when the first one fails. Default FALSE.
+
+\GrindNous\Filter::$multipleFieldErrors = TRUE;
+</code></pre>
+<h2 id="examples">Examples</h2>
+<hr />
+<p><strong>One:</strong></p>
+<pre><code>require 'GrindNous/Filter.php';
+
+$data = array(
+    'username' =&gt; 'Fulanito',
+    'comment' =&gt; ''
+);
+
+$validation = \GrindNous\Filter::factory($data)
+            -&gt;validate(
+                array('username', 'comment'),
+                'not_empty',
+                NULL,
+                array(':field cannot be empty.', array('username' =&gt; 'User name', 'comment' =&gt; 'Comment'))
+            )
+            -&gt;validate(
+                'username',
+                FILTER_VALIDATE_REGEXP,
+                "/^[-\pL\pN\pZs_.]{5,20}$/uD",
+                'The user name doesnt match with the required format.'
+            )
+            -&gt;validate('comment', 'max_length', 140, 'Comment too long.')
+            -&gt;sanitize(TRUE, 'trim');
+
+if($validation-&gt;ok())
+{
+    $data = $validation-&gt;data();
+}
+else
+{
+    $errors = $validation-&gt;errors();
+}
+</code></pre>
+<hr />
+<p><strong>Two:</strong></p>
+<pre><code>// MyClass.php
+class MyClass
+{
+    public function checkMail($email)
+    {
+        // Check for duplicate email
+        return TRUE/FALSE;
+    }
+}
+</code></pre>
+<hr />
+<pre><code>require 'GrindNous/Filter.php';
+require 'MyClass.php';
+
+$data = array(
+    'username' =&gt; 'Menganito',
+    'password' =&gt; '',
+    'email' =&gt; 'menganito@example.com',
+    'birthday' =&gt; '1970AA01'
+);
+
+$validation = \GrindNous\Filter::factory($data)
+            -&gt;validate(
+                array('username', 'password', 'email'),
+                'not_empty',
+                NULL,
+                array(':field cannot be empty.', array('username' =&gt; 'User name', 'password' =&gt; 'The password', 'email' =&gt; 'Email')))
+            -&gt;validate(
+                'username',
+                FILTER_VALIDATE_REGEXP,
+                "/^[-\pL\pN\pZs_.]{5,20}$/uD",
+                'The user name doesnt match with the required format.')
+            -&gt;validate('username', function() use ($data) {
+                // Check for duplicate username
+                return TRUE/FALSE;
+            }, NULL, 'User name already in use.')
+            -&gt;validate('email', 'valid_email', NULL, 'You must indicate a valid email account.')
+            -&gt;validate('email', 'max_length', 60, 'Email too long.')
+            -&gt;validate('email', array('MyClass', 'checkMail'), NULL, 'This email is already in use.')
+            -&gt;validate('birthday', FILTER_VALIDATE_INT, NULL, 'Birthday must be an integer.')
+            -&gt;sanitize(TRUE, 'trim');
+
+if($validation-&gt;ok())
+{
+    $data = $validation-&gt;data();
+}
+else
+{
+    $errors = $validation-&gt;errors();
+}
+</code></pre>
+<hr />
+<ul>
+<li>Filter extension documentation: http://www.php.net/manual/en/book.filter.php</li>
+<li><strong>FILTER_SANITIZE_FULL_SPECIAL_CHARS</strong> is available from PHP 5.3.3 (http://www.php.net/manual/es/filter.constants.php#101547)</li>
+</ul>
